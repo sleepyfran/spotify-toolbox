@@ -32,8 +32,14 @@ static class Program
         var context = await MakeContextAsync(clientId);
 
         // Only `login` can be executed without credentials.
-        if (command == "login")
+        if (context is UnauthenticatedContext)
         {
+            if (command != "login")
+            {
+                AnsiConsole.MarkupLine("[yellow]You have to login before executing any command. Run [italic]login[/] to start the auth process[/]");
+                return;
+            }
+            
             await new LoginCommand(context).Execute();
         }
         else
