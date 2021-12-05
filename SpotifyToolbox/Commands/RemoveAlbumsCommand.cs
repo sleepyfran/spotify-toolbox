@@ -15,13 +15,13 @@ public class RemoveAlbumsCommand
     public async Task Execute()
     {
         if (!AnsiConsole.Confirm(
-                "[orangered1]Are you absolutely certain? This will remove [bold]ALL[/] the albums in your library and [bold]CANNOT[/] be undone[/]"))
+                "[orangered1]Are you absolutely certain? This will remove [bold]ALL[/] the albums in your library and it [bold]CANNOT[/] be undone[/]"))
         {
             return;
         }
 
         AnsiConsole.MarkupLine(
-            "[yellow]Spotify currently limits the amount that we can remove albums through the API (currently 20 per request). Get some coffee or popcorn, this might take a while[/]");
+            "[yellow]Spotify currently limits the amount that we can remove through the API (currently 20 per request). Get some coffee or popcorn, this might take a while[/]");
 
 
         await AnsiConsole
@@ -34,7 +34,7 @@ public class RemoveAlbumsCommand
                     var albums = await _context.Client.Library.GetAlbums();
                     if (albums.Items!.Count == 0)
                     {
-                        AnsiConsole.Markup("[bold green]No more albums found, probably all removed :)[/]");
+                        AnsiConsole.MarkupLine("[bold green]No more albums found, probably all removed :)[/]");
                         break;
                     }
 
