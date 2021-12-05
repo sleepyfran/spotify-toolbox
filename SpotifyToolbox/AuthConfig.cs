@@ -11,15 +11,3 @@ public class AuthConfig
         Token = token;
     }
 }
-
-public class AppConfig
-{
-    public string ClientId { get; set; }
-    public AuthConfig? Auth { get; set; }
-
-    public AppConfig(string clientId, AuthConfig? auth = null)
-    {
-        Auth = auth;
-        ClientId = clientId;
-    }
-}

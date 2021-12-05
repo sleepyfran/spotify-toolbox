@@ -11,7 +11,7 @@ public static class Storage
         File.WriteAllText(AuthConfigPath, JsonConvert.SerializeObject(authConfig));
     }
 
-    public static async Task<AuthConfig?> ReadAuthConfig()
+    public static async Task<AuthConfig?> ReadAuthConfigAsync()
     {
         try
         {

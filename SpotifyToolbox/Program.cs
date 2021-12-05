@@ -1,4 +1,5 @@
 ﻿using Spectre.Console;
+using SpotifyAPI.Web;
 using SpotifyToolbox.CLI.Commands;
 
 namespace SpotifyToolbox.CLI;
@@ -21,24 +22,50 @@ static class Program
 
     static async Task ParseArgs(string clientId, string[] args)
     {
-        var command = args.FirstOrDefault();
-        if (command == null)
+        var command = string.Join(' ', args);
+        if (command == "")
         {
             AnsiConsole.Markup("[bold red]No command given[/]");
             Environment.Exit(1);
         }
 
-        var authConfig = await Storage.ReadAuthConfig();
-        var appConfig = new AppConfig(clientId, authConfig);
-        
-        switch (command)
+        var context = await MakeContextAsync(clientId);
+
+        // Only `login` can be executed without credentials.
+        if (command == "login")
         {
-            case "login":
-                await new LoginCommand(appConfig).Execute();
-                break;
-            default:
-                AnsiConsole.Markup("[bold red]Command not recognized[/]");
-                break;
+            await new LoginCommand(context).Execute();
         }
+        else
+        {
+            var authenticatedContext = (context as AuthenticatedContext)!;
+
+            switch (command)
+            {
+                case "remove albums":
+                    await new RemoveAlbumsCommand(authenticatedContext).Execute();
+                    break;
+                default:
+                    AnsiConsole.Markup("[bold red]Command not recognized[/]");
+                    break;
+            }
+        }
+    }
+
+    static async Task<Context> MakeContextAsync(string clientId)
+    {
+        var authConfig = await Storage.ReadAuthConfigAsync();
+        if (authConfig == null)
+        {
+            return new UnauthenticatedContext(clientId);
+        }
+
+        var authenticator = new PKCEAuthenticator(clientId, authConfig.Token);
+        authenticator.TokenRefreshed += (sender, token) => Storage.Save(new AuthConfig(token));
+
+        var clientConfig = SpotifyClientConfig.CreateDefault().WithAuthenticator(authenticator);
+        var client = new SpotifyClient(clientConfig);
+
+        return new AuthenticatedContext(clientId, authConfig, client);
     }
 }

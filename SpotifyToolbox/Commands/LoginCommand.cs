@@ -7,16 +7,16 @@ namespace SpotifyToolbox.CLI.Commands;
 
 public class LoginCommand
 {
-    public AppConfig config;
+    private readonly Context _context;
 
-    public LoginCommand(AppConfig config)
+    public LoginCommand(Context context)
     {
-        this.config = config;
+        _context = context;
     }
 
     public async Task Execute()
     {
-        if (config.Auth != null)
+        if (_context is AuthenticatedContext)
         {
             AnsiConsole.Markup("[bold yellow]You're already logged in, skipping[/]");
             return;
@@ -33,7 +33,7 @@ public class LoginCommand
         {
             await server.Stop();
             var token = await new OAuthClient().RequestToken(
-                new PKCETokenRequest(config.ClientId, response.Code, server.BaseUri, verifier)
+                new PKCETokenRequest(_context.ClientId, response.Code, server.BaseUri, verifier)
             );
 
             AnsiConsole.Markup("[bold green]Successfully authenticated! You can now use the rest of commands[/]");
@@ -41,7 +41,7 @@ public class LoginCommand
             authCompletionTask.SetResult();
         };
 
-        var request = new LoginRequest(server.BaseUri, config.ClientId, LoginRequest.ResponseType.Code)
+        var request = new LoginRequest(server.BaseUri, _context.ClientId, LoginRequest.ResponseType.Code)
         {
             CodeChallenge = challenge,
             CodeChallengeMethod = "S256",
