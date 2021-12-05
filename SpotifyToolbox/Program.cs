@@ -45,6 +45,9 @@ static class Program
                 case "remove albums":
                     await new RemoveAlbumsCommand(authenticatedContext).Execute();
                     break;
+                case "remove artists":
+                    await new RemoveArtistsCommand(authenticatedContext).Execute();
+                    break;
                 default:
                     AnsiConsole.Markup("[bold red]Command not recognized[/]");
                     break;

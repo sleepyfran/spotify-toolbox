@@ -45,7 +45,8 @@ public class LoginCommand
         {
             CodeChallenge = challenge,
             CodeChallengeMethod = "S256",
-            Scope = new List<string> {UserReadEmail, UserLibraryRead, UserLibraryModify}
+            Scope = new List<string>
+                {UserFollowRead, UserFollowModify, UserReadEmail, UserLibraryRead, UserLibraryModify}
         };
 
         var requestUri = request.ToUri();
