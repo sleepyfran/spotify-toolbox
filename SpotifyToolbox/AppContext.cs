@@ -2,25 +2,25 @@ using SpotifyAPI.Web;
 
 namespace SpotifyToolbox.CLI;
 
-public abstract class Context
+public abstract class AppContext
 {
     public string ClientId { get; set; }
 }
 
-public class UnauthenticatedContext : Context
+public class UnauthenticatedAppContext : AppContext
 {
-    public UnauthenticatedContext(string clientId)
+    public UnauthenticatedAppContext(string clientId)
     {
         ClientId = clientId;
     }
 }
 
-public class AuthenticatedContext : Context
+public class AuthenticatedAppContext : AppContext
 {
     public AuthConfig AuthConfig;
     public SpotifyClient Client;
 
-    public AuthenticatedContext(string clientId, AuthConfig authConfig, SpotifyClient client)
+    public AuthenticatedAppContext(string clientId, AuthConfig authConfig, SpotifyClient client)
     {
         ClientId = clientId;
         AuthConfig = authConfig;

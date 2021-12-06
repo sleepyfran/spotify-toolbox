@@ -1,25 +1,27 @@
 using Spectre.Console;
+using Spectre.Console.Cli;
 using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
 using static SpotifyAPI.Web.Scopes;
 
 namespace SpotifyToolbox.CLI.Commands;
 
-public class LoginCommand
+// ReSharper disable once ClassNeverInstantiated.Global
+public class LoginCommand : AsyncCommand
 {
-    private readonly Context _context;
+    private readonly AppContext _appContext;
 
-    public LoginCommand(Context context)
+    public LoginCommand(AppContext appContext)
     {
-        _context = context;
+        _appContext = appContext;
     }
 
-    public async Task Execute()
+    public override async Task<int> ExecuteAsync(CommandContext context)
     {
-        if (_context is AuthenticatedContext)
+        if (_appContext is AuthenticatedAppContext)
         {
             AnsiConsole.Markup("[bold yellow]You're already logged in, skipping[/]");
-            return;
+            return 1;
         }
 
         var server = new EmbedIOAuthServer(new Uri("http://localhost:8000/callback"), 8000);
@@ -33,7 +35,7 @@ public class LoginCommand
         {
             await server.Stop();
             var token = await new OAuthClient().RequestToken(
-                new PKCETokenRequest(_context.ClientId, response.Code, server.BaseUri, verifier)
+                new PKCETokenRequest(_appContext.ClientId, response.Code, server.BaseUri, verifier)
             );
 
             AnsiConsole.Markup("[bold green]Successfully authenticated! You can now use the rest of commands[/]");
@@ -41,7 +43,7 @@ public class LoginCommand
             authCompletionTask.SetResult();
         };
 
-        var request = new LoginRequest(server.BaseUri, _context.ClientId, LoginRequest.ResponseType.Code)
+        var request = new LoginRequest(server.BaseUri, _appContext.ClientId, LoginRequest.ResponseType.Code)
         {
             CodeChallenge = challenge,
             CodeChallengeMethod = "S256",
@@ -64,5 +66,6 @@ public class LoginCommand
         }
 
         await authCompletionTask.Task;
+        return 0;
     }
 }

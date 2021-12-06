@@ -1,6 +1,10 @@
-﻿using Spectre.Console;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Spectre.Console;
+using Spectre.Console.Cli;
 using SpotifyAPI.Web;
 using SpotifyToolbox.CLI.Commands;
+using SpotifyToolbox.CLI.Commands.Remove;
+using SpotifyToolbox.CLI.Infrastructure;
 
 namespace SpotifyToolbox.CLI;
 
@@ -17,56 +21,40 @@ static class Program
             Environment.Exit(1);
         }
 
-        await ParseArgs(clientId, args);
+        var appContext = await MakeContextAsync(clientId);
+        var dependencyRegistrar = CreateDependencyContainer(appContext);
+        var app = new CommandApp(dependencyRegistrar);
+        app.Configure(config =>
+        {
+            config
+                .AddCommand<LoginCommand>("login")
+                .WithDescription("Starts the authentication process needed for the rest of the commands");
+
+            // Only add commands if user is authenticated.
+            if (appContext is AuthenticatedAppContext)
+            {
+                config
+                    .AddBranch<RemoveSettings>("remove", branch =>
+                    {
+                        branch.SetDescription("Provides a way to wipe all albums or artists from your library");
+
+                        branch.AddCommand<RemoveAlbumsCommand>("albums")
+                            .WithDescription("Removes all the albums on your library");
+                        branch.AddCommand<RemoveArtistsCommand>("artists")
+                            .WithDescription("Unfollows all the artists on your library.");
+                    });
+            }
+        });
+
+        await app.RunAsync(args);
     }
 
-    static async Task ParseArgs(string clientId, string[] args)
-    {
-        var command = string.Join(' ', args);
-        if (command == "")
-        {
-            AnsiConsole.Markup("[bold red]No command given[/]");
-            Environment.Exit(1);
-        }
-
-        var context = await MakeContextAsync(clientId);
-
-        // Only `login` can be executed without credentials.
-        if (context is UnauthenticatedContext)
-        {
-            if (command != "login")
-            {
-                AnsiConsole.MarkupLine("[yellow]You have to login before executing any command. Run [italic]login[/] to start the auth process[/]");
-                return;
-            }
-            
-            await new LoginCommand(context).Execute();
-        }
-        else
-        {
-            var authenticatedContext = (context as AuthenticatedContext)!;
-
-            switch (command)
-            {
-                case "remove albums":
-                    await new RemoveAlbumsCommand(authenticatedContext).Execute();
-                    break;
-                case "remove artists":
-                    await new RemoveArtistsCommand(authenticatedContext).Execute();
-                    break;
-                default:
-                    AnsiConsole.Markup("[bold red]Command not recognized[/]");
-                    break;
-            }
-        }
-    }
-
-    static async Task<Context> MakeContextAsync(string clientId)
+    static async Task<AppContext> MakeContextAsync(string clientId)
     {
         var authConfig = await Storage.ReadAuthConfigAsync();
         if (authConfig == null)
         {
-            return new UnauthenticatedContext(clientId);
+            return new UnauthenticatedAppContext(clientId);
         }
 
         var authenticator = new PKCEAuthenticator(clientId, authConfig.Token);
@@ -75,6 +63,13 @@ static class Program
         var clientConfig = SpotifyClientConfig.CreateDefault().WithAuthenticator(authenticator);
         var client = new SpotifyClient(clientConfig);
 
-        return new AuthenticatedContext(clientId, authConfig, client);
+        return new AuthenticatedAppContext(clientId, authConfig, client);
+    }
+
+    static TypeRegistrar CreateDependencyContainer(AppContext context)
+    {
+        var registrations = new ServiceCollection();
+        registrations.AddSingleton(context);
+        return new TypeRegistrar(registrations);
     }
 }
