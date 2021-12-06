@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpotifyToolbox.CLI", "SpotifyToolbox.CLI.csproj", "{F5D29324-20AF-4EDB-8406-F07BAEF24597}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpotifyToolbox.CLI", "SpotifyToolbox.CLI/SpotifyToolbox.CLI.csproj", "{F5D29324-20AF-4EDB-8406-F07BAEF24597}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
