@@ -11,7 +11,7 @@ namespace SpotifyToolbox.CLI.Commands;
 public sealed class LoginCommand(AppSettings appSettings, IAnsiConsole console) : AsyncCommand
 {
     private const int CallbackPort = 8000;
-    private static readonly Uri CallbackUri = new($"http://localhost:{CallbackPort}/callback");
+    private static readonly Uri CallbackUri = new($"http://127.0.0.1:{CallbackPort}/callback");
 
     public override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {

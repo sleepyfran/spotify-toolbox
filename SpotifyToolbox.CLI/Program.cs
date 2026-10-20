@@ -5,6 +5,7 @@ using SpotifyAPI.Web;
 using SpotifyToolbox.CLI;
 using SpotifyToolbox.CLI.Auth;
 using SpotifyToolbox.CLI.Commands;
+using SpotifyToolbox.CLI.Commands.Cleanup;
 using SpotifyToolbox.CLI.Commands.Remove;
 using SpotifyToolbox.CLI.Infrastructure;
 using SpotifyToolbox.CLI.Spotify;
@@ -26,7 +27,9 @@ services.AddSingleton(new AppSettings(clientId, isLoggedIn));
 
 if (authConfig != null)
 {
-    services.AddSingleton(CreateSpotifyClient(clientId, authConfig));
+    var clientConfig = CreateSpotifyClientConfig(clientId, authConfig);
+    services.AddSingleton(clientConfig.APIConnector!);
+    services.AddSingleton<ISpotifyClient>(new SpotifyClient(clientConfig));
     services.AddSingleton<ISpotifyLibrary, SpotifyLibrary>();
 }
 
@@ -49,6 +52,11 @@ app.Configure(config =>
         return;
     }
 
+    config
+        .AddCommand<CleanupCommand>("cleanup")
+        .WithDescription(
+            "Interactively select artists and albums to remove from your library, optionally unfollowing artists left without albums");
+
     config.AddBranch<DryRunSettings>("remove", branch =>
     {
         branch.SetDescription("Provides a way to wipe all albums or artists from your library");
@@ -64,7 +72,11 @@ app.Configure(config =>
 
 return await app.RunAsync(args);
 
-static ISpotifyClient CreateSpotifyClient(string clientId, AuthConfig authConfig)
+/// <summary>
+/// Creates the client config with an already built API connector, so that the client and
+/// <see cref="SpotifyLibrary"/> share the same connection and authentication.
+/// </summary>
+static SpotifyClientConfig CreateSpotifyClientConfig(string clientId, AuthConfig authConfig)
 {
     var authenticator = new PKCEAuthenticator(clientId, authConfig.Token);
     authenticator.TokenRefreshed += (_, token) => AuthStorage.Save(new AuthConfig(token));
@@ -74,7 +86,7 @@ static ISpotifyClient CreateSpotifyClient(string clientId, AuthConfig authConfig
         .WithAuthenticator(authenticator)
         .WithRetryHandler(new SimpleRetryHandler());
 
-    return new SpotifyClient(clientConfig);
+    return clientConfig.WithAPIConnector(clientConfig.BuildAPIConnector());
 }
 
 static int HandleException(Exception exception)

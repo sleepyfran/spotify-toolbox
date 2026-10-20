@@ -1,4 +1,5 @@
 using SpotifyAPI.Web;
+using SpotifyAPI.Web.Http;
 
 namespace SpotifyToolbox.CLI.Spotify;
 
@@ -33,14 +34,17 @@ public interface ISpotifyLibrary
 /// <remarks>
 /// Removing items and checking whether they're saved/followed goes through the unified
 /// <c>/me/library</c> endpoints, which since February 2026 replace the type-specific ones (which
-/// are no longer available to apps in development mode).
+/// are no longer available to apps in development mode). Removals go straight through the API
+/// connector because SpotifyAPI.Web sends the URIs in the request body, which Spotify ignores
+/// and fails with "Missing required field: uris" since it only reads them from the query string.
 /// </remarks>
-public sealed class SpotifyLibrary(ISpotifyClient client) : ISpotifyLibrary
+public sealed class SpotifyLibrary(ISpotifyClient client, IAPIConnector api) : ISpotifyLibrary
 {
     /// <summary>
-    /// Maximum amount of URIs that Spotify accepts in a single library request.
+    /// Maximum amount of URIs that Spotify accepts in a single library request. SpotifyAPI.Web
+    /// documents 50, but the API rejects anything above 40 with "Too many uris requested".
     /// </summary>
-    private const int BatchSize = 50;
+    private const int BatchSize = 40;
 
     public async Task<IReadOnlyList<Album>> GetSavedAlbumsAsync(CancellationToken cancellationToken = default)
     {
@@ -110,7 +114,11 @@ public sealed class SpotifyLibrary(ISpotifyClient client) : ISpotifyLibrary
 
         foreach (var batch in uris.Chunk(BatchSize))
         {
-            await client.Library.RemoveItems(new LibraryRemoveItemsRequest(batch), cancellationToken);
+            await api.Delete(
+                SpotifyUrls.Library(),
+                new Dictionary<string, string> { ["uris"] = string.Join(',', batch) },
+                null,
+                cancellationToken);
 
             processed += batch.Length;
             progress?.Report(processed);

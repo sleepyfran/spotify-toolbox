@@ -14,3 +14,4 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet build
+      - run: dotnet test --no-build

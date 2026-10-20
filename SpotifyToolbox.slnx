@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="SpotifyToolbox.CLI/SpotifyToolbox.CLI.csproj" />
+  <Project Path="SpotifyToolbox.Tests/SpotifyToolbox.Tests.csproj" />
 </Solution>
