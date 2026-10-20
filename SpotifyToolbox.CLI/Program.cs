@@ -1,75 +1,104 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using SpotifyAPI.Web;
+using SpotifyToolbox.CLI;
+using SpotifyToolbox.CLI.Auth;
 using SpotifyToolbox.CLI.Commands;
 using SpotifyToolbox.CLI.Commands.Remove;
 using SpotifyToolbox.CLI.Infrastructure;
+using SpotifyToolbox.CLI.Spotify;
 
-namespace SpotifyToolbox.CLI;
-
-static class Program
+var clientId = Environment.GetEnvironmentVariable("SPOTIFY_CLIENT_ID");
+if (string.IsNullOrWhiteSpace(clientId))
 {
-    static async Task Main(string[] args)
+    AnsiConsole.MarkupLine(
+        "[bold red]No client ID found, please specify your client ID via the SPOTIFY_CLIENT_ID environment variable[/]");
+    return 1;
+}
+
+var authConfig = await AuthStorage.ReadAsync();
+var isLoggedIn = authConfig != null;
+
+var services = new ServiceCollection();
+services.AddSingleton(AnsiConsole.Console);
+services.AddSingleton(new AppSettings(clientId, isLoggedIn));
+
+if (authConfig != null)
+{
+    services.AddSingleton(CreateSpotifyClient(clientId, authConfig));
+    services.AddSingleton<ISpotifyLibrary, SpotifyLibrary>();
+}
+
+var app = new CommandApp(new TypeRegistrar(services));
+app.Configure(config =>
+{
+    config.SetApplicationName("spotify-toolbox");
+    config.SetExceptionHandler((exception, _) => HandleException(exception));
+
+    config
+        .AddCommand<LoginCommand>("login")
+        .WithDescription("Starts the authentication process needed for the rest of the commands");
+    config
+        .AddCommand<LogoutCommand>("logout")
+        .WithDescription("Removes the stored Spotify credentials");
+
+    // The rest of commands need access to the user's library.
+    if (!isLoggedIn)
     {
-        var clientId = Environment.GetEnvironmentVariable("SPOTIFY_CLIENT_ID");
-
-        if (clientId == null)
-        {
-            AnsiConsole.Markup(
-                "[bold red]No client ID found, please specify your client ID  via the SPOTIFY_CLIENT_ID environment variable[/]");
-            Environment.Exit(1);
-        }
-
-        var appContext = await MakeContextAsync(clientId);
-        var dependencyRegistrar = CreateDependencyContainer(appContext);
-        var app = new CommandApp(dependencyRegistrar);
-        app.Configure(config =>
-        {
-            config
-                .AddCommand<LoginCommand>("login")
-                .WithDescription("Starts the authentication process needed for the rest of the commands");
-
-            // Only add commands if user is authenticated.
-            if (appContext is AuthenticatedAppContext)
-            {
-                config
-                    .AddBranch<RemoveSettings>("remove", branch =>
-                    {
-                        branch.SetDescription("Provides a way to wipe all albums or artists from your library");
-
-                        branch.AddCommand<RemoveAlbumsCommand>("albums")
-                            .WithDescription("Removes all the albums on your library");
-                        branch.AddCommand<RemoveArtistsCommand>("artists")
-                            .WithDescription("Unfollows all the artists on your library.");
-                    });
-            }
-        });
-
-        await app.RunAsync(args);
+        return;
     }
 
-    static async Task<AppContext> MakeContextAsync(string clientId)
+    config.AddBranch<DryRunSettings>("remove", branch =>
     {
-        var authConfig = await Storage.ReadAuthConfigAsync();
-        if (authConfig == null)
-        {
-            return new UnauthenticatedAppContext(clientId);
-        }
+        branch.SetDescription("Provides a way to wipe all albums or artists from your library");
 
-        var authenticator = new PKCEAuthenticator(clientId, authConfig.Token);
-        authenticator.TokenRefreshed += (sender, token) => Storage.Save(new AuthConfig(token));
+        branch
+            .AddCommand<RemoveAlbumsCommand>("albums")
+            .WithDescription("Removes all the albums in your library");
+        branch
+            .AddCommand<RemoveArtistsCommand>("artists")
+            .WithDescription("Unfollows all the artists in your library");
+    });
+});
 
-        var clientConfig = SpotifyClientConfig.CreateDefault().WithAuthenticator(authenticator);
-        var client = new SpotifyClient(clientConfig);
+return await app.RunAsync(args);
 
-        return new AuthenticatedAppContext(clientId, authConfig, client);
+static ISpotifyClient CreateSpotifyClient(string clientId, AuthConfig authConfig)
+{
+    var authenticator = new PKCEAuthenticator(clientId, authConfig.Token);
+    authenticator.TokenRefreshed += (_, token) => AuthStorage.Save(new AuthConfig(token));
+
+    var clientConfig = SpotifyClientConfig
+        .CreateDefault()
+        .WithAuthenticator(authenticator)
+        .WithRetryHandler(new SimpleRetryHandler());
+
+    return new SpotifyClient(clientConfig);
+}
+
+static int HandleException(Exception exception)
+{
+    switch (exception)
+    {
+        case CommandAppException { Pretty: { } pretty }:
+            AnsiConsole.Write(pretty);
+            break;
+        case APIUnauthorizedException:
+            AnsiConsole.MarkupLine(
+                "[bold red]Spotify rejected your credentials.[/] Run [blue]logout[/] and then [blue]login[/] to authenticate again");
+            break;
+        case APIException apiException:
+            AnsiConsole.MarkupLineInterpolated(
+                $"[bold red]Spotify returned an error ({apiException.Response?.StatusCode}):[/] {apiException.Message}");
+            break;
+        case OperationCanceledException:
+            AnsiConsole.MarkupLine("[yellow]Operation cancelled[/]");
+            break;
+        default:
+            AnsiConsole.WriteException(exception, ExceptionFormats.ShortenEverything);
+            break;
     }
 
-    static TypeRegistrar CreateDependencyContainer(AppContext context)
-    {
-        var registrations = new ServiceCollection();
-        registrations.AddSingleton(context);
-        return new TypeRegistrar(registrations);
-    }
+    return -1;
 }

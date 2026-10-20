@@ -2,7 +2,7 @@
 A set of tools to manage your Spotify library from the CLI.
 
 ## 🚀 Running
-In order to run the CLI you need to first install the latest version of .NET which you can obtain
+In order to run the CLI you need to first install .NET 10 or newer which you can obtain
 from [here](https://dotnet.microsoft.com/en-us/download). Once you have it you can clone the repo and run:
 
 ```bash
@@ -22,7 +22,9 @@ Once you've done that you can copy the `Client ID` that the dashboard should sho
 SPOTIFY_CLIENT_ID={your client ID} dotnet run --project SpotifyToolbox.CLI -- --help
 ```
 
-This should now print out the list of commands, which will only be `login`, and if you run it it should open a browser to help you authenticate your account to the CLI. After login you should see the available commands when running help.
+This should now print out the list of commands, which will only be `login` and `logout`. Running `login` should open a browser to help you authenticate your account to the CLI. After login you should see the available commands when running help.
+
+Your credentials are stored in the user's config folder (`~/.config/spotify-toolbox` on Linux and macOS, `%APPDATA%\spotify-toolbox` on Windows). If you need to authenticate again, run `logout` and then `login`.
 
 ## 🔨 Available commands
 Right now with the toolbox you can do the following things:

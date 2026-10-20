@@ -7,37 +7,17 @@ namespace SpotifyToolbox.CLI.Infrastructure;
 /// Type registrar to be used for dependency injection. Taken from SpectreConsole's examples:
 /// https://github.com/spectreconsole/spectre.console/blob/main/examples/Cli/Injection/Infrastructure/TypeRegistrar.cs
 /// </summary>
-public sealed class TypeRegistrar : ITypeRegistrar
+public sealed class TypeRegistrar(IServiceCollection builder) : ITypeRegistrar
 {
-    private readonly IServiceCollection _builder;
+    public ITypeResolver Build() => new TypeResolver(builder.BuildServiceProvider());
 
-    public TypeRegistrar(IServiceCollection builder)
+    public void Register(Type service, Type implementation) => builder.AddSingleton(service, implementation);
+
+    public void RegisterInstance(Type service, object implementation) => builder.AddSingleton(service, implementation);
+
+    public void RegisterLazy(Type service, Func<object> factory)
     {
-        _builder = builder;
-    }
-
-    public ITypeResolver Build()
-    {
-        return new TypeResolver(_builder.BuildServiceProvider());
-    }
-
-    public void Register(Type service, Type implementation)
-    {
-        _builder.AddSingleton(service, implementation);
-    }
-
-    public void RegisterInstance(Type service, object implementation)
-    {
-        _builder.AddSingleton(service, implementation);
-    }
-
-    public void RegisterLazy(Type service, Func<object> func)
-    {
-        if (func is null)
-        {
-            throw new ArgumentNullException(nameof(func));
-        }
-
-        _builder.AddSingleton(service, (provider) => func());
+        ArgumentNullException.ThrowIfNull(factory);
+        builder.AddSingleton(service, _ => factory());
     }
 }
